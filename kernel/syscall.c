@@ -104,7 +104,12 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_wait(void);
 extern uint64 sys_write(void);
 extern uint64 sys_uptime(void);
+extern uint64 sys_trace(void);
+extern uint64 sys_sysinfo(void);
 
+// Designated Initializers:
+// http://gcc.gnu.org/onlinedocs/gcc-4.0.4/gcc/Designated-Inits.html
+// e.g., syscalls[1] = sysfork 
 static uint64 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
 [SYS_exit]    sys_exit,
@@ -127,6 +132,35 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_trace] sys_trace,
+[SYS_sysinfo] sys_sysinfo,
+};
+
+
+static char *sysnames[] = {
+[SYS_fork]    "fork",
+[SYS_exit]    "exit",
+[SYS_wait]    "wait",
+[SYS_pipe]    "pipe",
+[SYS_read]    "read",
+[SYS_kill]    "kill",
+[SYS_exec]    "exec",
+[SYS_fstat]   "fstat",
+[SYS_chdir]   "chdir",
+[SYS_dup]     "dup",
+[SYS_getpid]  "getpid",
+[SYS_sbrk]    "sbrk",
+[SYS_sleep]   "sleep",
+[SYS_uptime]  "uptime",
+[SYS_open]    "open",
+[SYS_write]   "write",
+[SYS_mknod]   "mknod",
+[SYS_unlink]  "unlink",
+[SYS_link]    "link",
+[SYS_mkdir]   "mkdir",
+[SYS_close]   "close",
+[SYS_trace] "trace",
+[SYS_sysinfo] "sysinfo",
 };
 
 void
@@ -135,9 +169,15 @@ syscall(void)
   int num;
   struct proc *p = myproc();
 
+  // user code puts the system call number in a7.
   num = p->trapframe->a7;
+
+  // check if 0 < num < len(syscalls) && syscalls[num] != 0
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+    // put return number to a0
     p->trapframe->a0 = syscalls[num]();
+    if ((1 << num) & p->trace_mask)
+      printf("%d: syscall %s -> %d\n", p->pid, sysnames[num], p->trapframe->a0);
   } else {
     printf("%d %s: unknown sys call %d\n",
             p->pid, p->name, num);
