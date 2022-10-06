@@ -74,7 +74,34 @@ sys_sleep(void)
 int
 sys_pgaccess(void)
 {
-  // lab pgtbl: your code here.
+  uint64 buf_addr, abit_addr;
+  int size;
+  struct proc *p = myproc();
+  argaddr(0, &buf_addr);
+  argint(1, &size);
+  argaddr(2, &abit_addr);
+  uint64 start, end;
+  unsigned int abits = 0;
+  pte_t *pte;
+
+
+  if(size == 0)
+    panic("pgaccess: size can not be zero");
+
+  start = PGROUNDDOWN(buf_addr);
+  end = PGROUNDDOWN(buf_addr + size * PGSIZE - 1);
+  end = end > MAXVA ? MAXVA : end;
+
+  for (unsigned i = 0; i < 32 && start <= end; i++, start += PGSIZE) {
+    if((pte = walk(p->pagetable, start, 0)) == 0)
+      continue;
+    if(*pte & PTE_A) {
+      abits |= (1 << i);
+      *pte &= ~PTE_A;
+    }
+  }
+
+  copyout(p->pagetable, abit_addr, (char *)&abits, sizeof(abits));
   return 0;
 }
 #endif
